@@ -1,0 +1,13 @@
+package indonesia
+
+type transition func(*Game) (transition, string, error)
+
+func (g *Game) dispatcher(next transition, description string) (transition, string, error) {
+	for next != nil {
+		var err error
+		if next, description, err = next(g); err != nil {
+			return nil, description, err
+		}
+	}
+	return nil, description, nil
+}

@@ -1,0 +1,33 @@
+package indonesia
+
+import (
+	. "launchpad.net/gocheck"
+)
+
+
+func (s *MySuite) TestContiguous(c *C) {
+	// When ids length is zero, return false 
+        test1Data := AreaIDS{}
+	c.Check(test1Data.contiguous(), Equals, false)
+
+	// When ids length is one, return true 
+        test2Data := AreaIDS{Aceh0}
+	c.Check(test2Data.contiguous(), Equals, true)
+
+	// When ids are contiguous, return true 
+        test3Data := AreaIDS{Aceh0, Aceh1}
+	c.Check(test3Data.contiguous(), Equals, true)
+
+        test3Data = AreaIDS{Aceh0, Aceh1, Aceh2}
+	c.Check(test3Data.contiguous(), Equals, true)
+
+        test3Data = AreaIDS{Aceh0, Aceh1, Aceh2, Aceh3}
+	c.Check(test3Data.contiguous(), Equals, true)
+
+        test3Data = AreaIDS{Aceh0, Aceh1, Aceh2, Aceh3, SumateraUtara7}
+	c.Check(test3Data.contiguous(), Equals, true)
+
+	// When ids are not contiguous, return false 
+        test3Data = AreaIDS{Aceh0, Aceh1, Aceh2, SumateraUtara7}
+	c.Check(test3Data.contiguous(), Equals, false)
+}

@@ -1,0 +1,80 @@
+package indonesia
+
+import . "launchpad.net/gocheck"
+
+func (s *MySuite) TestCombinations(c *C) {
+	// 6 Chose 3
+	comb := NewComb(6, 3)
+	c.Check(comb, Not(IsNil))
+        c.Check(comb.Set, DeepEquals, []int{0, 1, 2, 3, 4, 5})
+        c.Check(comb.Current, DeepEquals, []int{0, 1, 2})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{0, 1, 3})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{0, 1, 4})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{0, 1, 5})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{0, 2, 3})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{0, 2, 4})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{0, 2, 5})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{0, 3, 4})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{0, 3, 5})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{0, 4, 5})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{1, 2, 3})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{1, 2, 4})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{1, 2, 5})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{1, 3, 4})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{1, 3, 5})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{1, 4, 5})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{2, 3, 4})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{2, 3, 5})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{2, 4, 5})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{3, 4, 5})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{})
+
+	// 4 Chose 4
+	comb = NewComb(4, 4)
+	c.Check(comb, Not(IsNil))
+        c.Check(comb.Set, DeepEquals, []int{0, 1, 2, 3})
+        c.Check(comb.Current, DeepEquals, []int{0, 1, 2, 3})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{})
+        comb = comb.Next()
+        c.Check(comb.Current, DeepEquals, []int{})
+
+	// 5 Chose 0
+	comb = NewComb(5, 0)
+	c.Check(comb, Not(IsNil))
+        c.Check(comb.Set, DeepEquals, []int{0, 1, 2, 3, 4})
+        c.Check(comb.Current, DeepEquals, []int{})
+        c.Check(comb.Next().Current, DeepEquals, []int{})
+
+	// 5 Chose -1
+	comb = NewComb(5, -1)
+	c.Check(comb, IsNil)
+
+	// -5 Chose 1
+	comb = NewComb(-5, 1)
+	c.Check(comb, IsNil)
+
+	// 5 Chose 6
+	comb = NewComb(5, 6)
+	c.Check(comb, IsNil)
+}

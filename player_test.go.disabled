@@ -1,0 +1,37 @@
+package indonesia
+
+import . "launchpad.net/gocheck"
+
+func (s *MySuite) TestCompare(c *C) {
+	// No score
+	p1 := g.Players()[0]
+	for _, p := range g.Players()[1:] {
+		c.Check(p.compareByScore(p1), Equals, sn.EqualTo)
+	}
+}
+
+func (s *MySuite) TestPlayers(c *C) {
+	c.Check(len(g.Players()), Equals, 4)
+
+	for _, p := range g.Players() {
+		c.Assert(p, Not(IsNil))
+		c.Check(p, Not(IsNil))
+		c.Check(p.Game(), Equals, g)
+		c.Check(p.Rupiah, Equals, 100)
+		c.Check(p.Bank, Equals, 0)
+		c.Check(p.Bid, Equals, NoBid)
+		c.Check(len(p.CityCards), Equals, 3)
+		c.Check(len(p.Technologies), Equals, 5)
+		for _, value := range p.Technologies {
+			c.Check(value, Equals, 1)
+		}
+		c.Check(len(p.Slots), Equals, 5)
+		for i, slot := range p.Slots {
+			if i == 0 {
+				c.Check(slot.Developed, Equals, true)
+			} else {
+				c.Check(slot.Developed, Equals, false)
+			}
+		}
+	}
+}

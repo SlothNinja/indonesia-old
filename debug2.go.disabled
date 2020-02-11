@@ -1,0 +1,15 @@
+//// +build !appengine
+//
+//package indonesia
+//
+//import "fmt"
+//
+//// Convenience method for conditionally logging Debug information
+//// based on package global const debug
+//const debug = true
+//
+//func (g *Game) debugf(format string, args ...interface{}) {
+//	if debug {
+//		fmt.Printf(format+"\n", args...)
+//	}
+//}

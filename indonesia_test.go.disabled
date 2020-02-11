@@ -1,0 +1,335 @@
+package indonesia
+
+import (
+	"appengine/memcache"
+	"bitbucket.org/SlothNinja/gaelic"
+	"encoding/gob"
+	. "launchpad.net/gocheck"
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/icub3d/appenginetesting"
+)
+
+func init() {
+	gob.Register(new(TestEntity))
+}
+
+var ctx *appenginetesting.CTX
+var req *http.Request
+
+// Hook up gocheck into the gotest runner.
+func Test(t *testing.T) { TestingT(t) }
+
+type MySuite struct{}
+
+var _ = Suite(&MySuite{})
+
+func getRequest() *http.Request {
+	r, _ := http.NewRequest("GET", "http://localhost", nil)
+	r.Header.Set("App-Testing", "1")
+	return r
+}
+
+func (s *MySuite) SetUpSuite(c *C) {
+	createContext(c)
+}
+
+func (s *MySuite) SetUpTest(c *C) {
+}
+
+func (s *MySuite) TearDownSuite(c *C) {
+	ctx.Close()
+}
+
+func createContext(c *C) {
+	var err error
+	ctx, err = appenginetesting.NewContext(nil)
+	c.Assert(err, Equals, nil)
+	req = getRequest()
+}
+
+type TestResource struct {
+	*TestEntity
+	*db.Resource
+}
+
+func (res *TestResource) Entity() interface{} {
+	return res.TestEntity
+}
+
+type TestEntity struct {
+	Data      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func NewTestResource(r *http.Request) *TestResource {
+	res := new(TestResource)
+	res.TestEntity = new(TestEntity)
+	res.Resource = db.NewResource(ctx, r, "TestResource")
+	return res
+}
+
+func (s *MySuite) TestGetByID(c *C) {
+	const testData = "TestData"
+	res := NewTestResource(req)
+	res.Data = testData
+
+	// When not present, return ErrNoSuchEntity
+	err := db.GetByID(res, 123)
+	c.Check(err, Equals, db.ErrNoSuchEntity)
+
+	err = db.Put(res)
+	c.Check(err, IsNil)
+
+	// When present, return resource and place in memcache
+	err = db.Get(res)
+	c.Check(err, IsNil)
+	c.Check(res.Data, Equals, testData)
+
+	res2 := NewTestResource(req)
+	err = db.GetByID(res2, res.ID(), FromCache)
+	c.Check(err, IsNil)
+	c.Check(res2.Data, Equals, testData)
+}
+
+func (s *MySuite) TestGetBySID(c *C) {
+	const testData = "TestData"
+	res := NewTestResource(req)
+	res.Data = testData
+
+	// When not present, return ErrNoSuchEntity
+	err := GetBySID(res, "234")
+	c.Check(err, Equals, ErrNoSuchEntity)
+
+	err = Put(res)
+	c.Check(err, IsNil)
+
+	// When present, return resource and place in memcache
+	err = Get(res)
+	c.Check(err, IsNil)
+	c.Check(res.Data, Equals, testData)
+
+	res2 := NewTestResource(req)
+	err = GetByID(res2, res.ID(), FromCache)
+	c.Check(err, IsNil)
+	c.Check(res2.Data, Equals, testData)
+}
+
+func (s *MySuite) TestGetByName(c *C) {
+	const testData = "TestData"
+	res := NewTestResource(req)
+	res.Data = testData
+
+	// When not present, return ErrNoSuchEntity
+	err := GetByNID(res, "name")
+	c.Check(err, Equals, ErrNoSuchEntity)
+
+	err = Put(res)
+	c.Check(err, IsNil)
+
+	// When present, return resource and place in memcache
+	err = Get(res)
+	c.Check(err, IsNil)
+	c.Check(res.Data, Equals, testData)
+
+	res2 := NewTestResource(req)
+	err = GetByNID(res2, "name")
+	c.Check(res2.Data, Equals, testData)
+}
+
+func (s *MySuite) TestLock(c *C) {
+	const testData1 = "TestData1"
+	res := NewTestResource(req)
+	res.Data = testData1
+
+	err := Put(res)
+	c.Check(err, IsNil)
+
+	res2 := NewTestResource(req)
+	// Locking first, subsequent put will succeed
+	err = GetByID(res2, res.ID(), Lock)
+	c.Check(err, IsNil)
+	c.Check(res2.Data, Equals, testData1)
+
+	res3 := NewTestResource(req)
+	// Locking first, subsequent put will succeed
+	err = GetByID(res3, res.ID(), Lock)
+	c.Check(err, IsNil)
+	c.Check(res3.Data, Equals, testData1)
+
+	err = Put(res3, EnforceLock)
+	c.Check(err, IsNil)
+
+	// But subsequent, puts will fail
+	err = Put(res3, EnforceLock)
+	c.Check(err, Equals, ErrNotStored)
+}
+
+func (s *MySuite) TestDontCache(c *C) {
+	const testData = "TestData"
+	res := NewTestResource(req)
+	res.Data = testData
+
+	// When not present, return ErrNoSuchEntity
+	err := GetByID(res, 345)
+	c.Check(err, Equals, ErrNoSuchEntity)
+
+	err = Put(res)
+	c.Check(err, IsNil)
+
+	// When present, return resource but don't place in memcache
+	err = Get(res, DontCache)
+	c.Check(err, IsNil)
+	c.Check(res.Data, Equals, testData)
+
+	res2 := NewTestResource(req)
+	err = GetByID(res2, res.ID(), FromCache)
+	c.Check(err, Equals, ErrCacheMiss)
+	c.Check(res2.Data, Equals, "")
+}
+
+func (s *MySuite) TestFromDS(c *C) {
+	const dsData = "dsData"
+	const cacheData = "cacheData"
+	res := NewTestResource(req)
+	res.Data = dsData
+
+	// When not present, return ErrNoSuchEntity
+	err := GetByID(res, 456)
+	c.Check(err, Equals, ErrNoSuchEntity)
+
+	err = Put(res)
+	c.Check(err, IsNil)
+
+	res.Data = cacheData
+	err = Put(res, ToCache)
+	c.Check(err, IsNil)
+
+	res.Data = ""
+	// Get resource from datastore bypassing cache
+	err = Get(res, FromDS)
+	c.Check(err, IsNil)
+	c.Check(res.Data, Equals, dsData)
+}
+
+func (s *MySuite) TestFromCache(c *C) {
+	const dsData = "dsData"
+	const cacheData = "cacheData"
+	res := NewTestResource(req)
+	res.Data = dsData
+
+	// When not present, return ErrNoSuchEntity
+	err := GetByID(res, 567)
+	c.Check(err, Equals, ErrNoSuchEntity)
+
+	err = Put(res)
+	c.Check(err, IsNil)
+
+	res.Data = cacheData
+	err = Put(res, ToCache)
+	c.Check(err, IsNil)
+
+	res.Data = ""
+	// Get resource from datastore bypassing cache
+	err = Get(res, FromCache)
+	c.Check(err, IsNil)
+	c.Check(res.Data, Equals, cacheData)
+}
+
+func (s *MySuite) TestDelete(c *C) {
+	res := NewTestResource(req)
+
+	// Put resource
+	err := Put(res)
+	c.Check(err, IsNil)
+
+	// Get resource from datastore
+	err = Get(res)
+	c.Check(err, IsNil)
+
+	// Delete resource from datastore and memcache
+	err = Delete(res)
+	c.Check(err, IsNil)
+
+	// Get resource
+	err = Get(res)
+	c.Check(err, Equals, ErrNoSuchEntity)
+}
+
+func (s *MySuite) TestDeleteFromCache(c *C) {
+	res := NewTestResource(req)
+
+	// Put resource
+	err := Put(res)
+	c.Check(err, IsNil)
+
+	// Get resource from datastore
+	err = Get(res)
+	c.Check(err, IsNil)
+
+	// Delete resource from memcache
+	err = Delete(res, FromCache)
+	c.Check(err, IsNil)
+
+	// Get resource from memcache
+	err = Get(res, FromCache)
+	c.Check(err, Equals, ErrCacheMiss)
+
+	// Get resource pulls from datastore
+	err = Get(res)
+	c.Check(err, IsNil)
+}
+
+func (s *MySuite) TestDeleteFromDS(c *C) {
+	res := NewTestResource(req)
+
+	// Put resource
+	err := Put(res)
+	c.Check(err, IsNil)
+
+	// Get resource from datastore
+	err = Get(res)
+	c.Check(err, IsNil)
+
+	// Delete resource from datastore
+	err = Delete(res, FromDS)
+	c.Check(err, IsNil)
+
+	// Get resource from memcache
+	err = Get(res, FromCache)
+	c.Check(err, IsNil)
+
+	// Get resource pulls from datastore
+	err = Get(res, FromDS)
+	c.Check(err, Equals, ErrNoSuchEntity)
+}
+
+type Entity struct {
+	Data string
+}
+
+func (s *MySuite) TestCompareSwap(c *C) {
+	entity := new(Entity)
+	entity.Data = "TestData"
+
+	item := new(memcache.Item)
+	item.Object = entity
+	item.Key = "key"
+
+	err := memcache.Gob.Add(ctx, item)
+	c.Check(err, IsNil)
+
+	entity2 := new(Entity)
+	item2, err := memcache.Gob.Get(ctx, "key", entity2)
+	c.Check(err, IsNil)
+	c.Check(entity2.Data, Equals, entity.Data)
+
+	entity2.Data = "TestData2"
+	item2.Object = entity2
+
+	err = memcache.Gob.CompareAndSwap(ctx, item2)
+	c.Check(err, IsNil)
+}
